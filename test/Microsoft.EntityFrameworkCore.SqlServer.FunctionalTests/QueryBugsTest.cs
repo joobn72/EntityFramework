@@ -1321,6 +1321,521 @@ WHERE ([c].[FirstName] = @__firstName_0) AND ([c].[LastName] = @__8__locals1_det
             public Post5456 Blog { get; set; }
         }
 
+        [Fact]
+        public virtual void Repro474_string_contains_on_argument_with_wildcard_constant()
+        {
+            CreateDatabase474();
+
+            var loggingFactory = new TestSqlLoggerFactory();
+            var serviceProvider = new ServiceCollection()
+                .AddEntityFrameworkSqlServer()
+                .AddSingleton<ILoggerFactory>(loggingFactory)
+                .BuildServiceProvider();
+
+            using (var ctx = new MyContext474(serviceProvider))
+            {
+                var result1 = ctx.Customers.Where(c => c.FirstName.Contains("%B")).Select(c => c.FirstName).ToList();
+                var expected1 = ctx.Customers.Select(c => c.FirstName).ToList().Where(c => c != null && c.Contains("%B"));
+                Assert.True(expected1.Count() == result1.Count);
+
+                var result2 = ctx.Customers.Where(c => c.FirstName.Contains("a_")).Select(c => c.FirstName).ToList();
+                var expected2 = ctx.Customers.Select(c => c.FirstName).ToList().Where(c => c != null && c.Contains("a_"));
+                Assert.True(expected2.Count() == result2.Count);
+
+                var result3 = ctx.Customers.Where(c => c.FirstName.Contains(null)).Select(c => c.FirstName).ToList();
+                Assert.True(0 == result3.Count);
+
+                var result4 = ctx.Customers.Where(c => c.FirstName.Contains("")).Select(c => c.FirstName).ToList();
+                Assert.True(ctx.Customers.Count() == result4.Count);
+
+                var result5 = ctx.Customers.Where(c => c.FirstName.Contains("_Ba_")).Select(c => c.FirstName).ToList();
+                var expected5 = ctx.Customers.Select(c => c.FirstName).ToList().Where(c => c != null && c.Contains("_Ba_"));
+                Assert.True(expected5.Count() == result5.Count);
+
+                var result6 = ctx.Customers.Where(c => !c.FirstName.Contains("%B%a%r")).Select(c => c.FirstName).ToList();
+                var expected6 = ctx.Customers.Select(c => c.FirstName).ToList().Where(c => c != null && !c.Contains("%B%a%r"));
+                Assert.True(expected6.Count() == result6.Count);
+
+                var result7 = ctx.Customers.Where(c => !c.FirstName.Contains("")).Select(c => c.FirstName).ToList();
+                Assert.True(0 == result7.Count);
+
+                var result8 = ctx.Customers.Where(c => !c.FirstName.Contains(null)).Select(c => c.FirstName).ToList();
+                Assert.True(0 == result8.Count);
+            }
+        }
+
+        [Fact]
+        public virtual void Repro474_string_contains_on_argument_with_wildcard_parameter()
+        {
+            CreateDatabase474();
+
+            var loggingFactory = new TestSqlLoggerFactory();
+            var serviceProvider = new ServiceCollection()
+                .AddEntityFrameworkSqlServer()
+                .AddSingleton<ILoggerFactory>(loggingFactory)
+                .BuildServiceProvider();
+
+            using (var ctx = new MyContext474(serviceProvider))
+            {
+                var prm1 = "%B";
+                var result1 = ctx.Customers.Where(c => c.FirstName.Contains(prm1)).Select(c => c.FirstName).ToList();
+                var expected1 = ctx.Customers.Select(c => c.FirstName).ToList().Where(c => c != null && c.Contains(prm1));
+                Assert.True(expected1.Count() == result1.Count);
+
+                var prm2 = "a_";
+                var result2 = ctx.Customers.Where(c => c.FirstName.Contains(prm2)).Select(c => c.FirstName).ToList();
+                var expected2 = ctx.Customers.Select(c => c.FirstName).ToList().Where(c => c != null && c.Contains(prm2));
+                Assert.True(expected2.Count() == result2.Count);
+
+                var prm3 = (string)null;
+                var result3 = ctx.Customers.Where(c => c.FirstName.Contains(prm3)).Select(c => c.FirstName).ToList();
+                Assert.True(0 == result3.Count);
+
+                var prm4 = "";
+                var result4 = ctx.Customers.Where(c => c.FirstName.Contains(prm4)).Select(c => c.FirstName).ToList();
+                Assert.True(ctx.Customers.Count() == result4.Count);
+
+                var prm5 = "_Ba_";
+                var result5 = ctx.Customers.Where(c => c.FirstName.Contains(prm5)).Select(c => c.FirstName).ToList();
+                var expected5 = ctx.Customers.Select(c => c.FirstName).ToList().Where(c => c != null && c.Contains(prm5));
+                Assert.True(expected5.Count() == result5.Count);
+
+                var prm6 = "%B%a%r";
+                var result6 = ctx.Customers.Where(c => !c.FirstName.Contains(prm6)).Select(c => c.FirstName).ToList();
+                var expected6 = ctx.Customers.Select(c => c.FirstName).ToList().Where(c => c != null && !c.Contains(prm6));
+                Assert.True(expected6.Count() == result6.Count);
+
+                var prm7 = "";
+                var result7 = ctx.Customers.Where(c => !c.FirstName.Contains(prm7)).Select(c => c.FirstName).ToList();
+                Assert.True(0 == result7.Count);
+
+                var prm8 = (string)null;
+                var result8 = ctx.Customers.Where(c => !c.FirstName.Contains(prm8)).Select(c => c.FirstName).ToList();
+                Assert.True(0 == result8.Count);
+            }
+        }
+
+        [Fact]
+        public virtual void Repro474_string_contains_on_argument_with_wildcard_column()
+        {
+            CreateDatabase474();
+
+            var loggingFactory = new TestSqlLoggerFactory();
+            var serviceProvider = new ServiceCollection()
+                .AddEntityFrameworkSqlServer()
+                .AddSingleton<ILoggerFactory>(loggingFactory)
+                .BuildServiceProvider();
+
+            using (var ctx = new MyContext474(serviceProvider))
+            {
+                var result = ctx.Customers.Select(c => c.FirstName)
+                    .SelectMany(c => ctx.Customers.Select(c2 => c2.LastName), (fn, ln) => new { fn, ln })
+                    .Where(r => r.fn.Contains(r.ln)).ToList().OrderBy(r => r.fn).ThenBy(r => r.ln).ToList();
+
+                var expected = ctx.Customers.Select(c => c.FirstName).ToList()
+                    .SelectMany(c => ctx.Customers.Select(c2 => c2.LastName).ToList(), (fn, ln) => new { fn, ln })
+                    .Where(r => r.ln == "" || (r.fn != null && r.ln != null && r.fn.Contains(r.ln))).ToList().OrderBy(r => r.fn).ThenBy(r => r.ln).ToList();
+
+                Assert.Equal(result.Count, expected.Count);
+                for (int i = 0; i < result.Count; i++)
+                {
+                    Assert.True(expected[i].fn == result[i].fn);
+                    Assert.True(expected[i].ln == result[i].ln);
+                }
+            }
+        }
+
+        [Fact]
+        public virtual void Repro474_string_contains_on_argument_with_wildcard_column_negated()
+        {
+            CreateDatabase474();
+
+            var loggingFactory = new TestSqlLoggerFactory();
+            var serviceProvider = new ServiceCollection()
+                .AddEntityFrameworkSqlServer()
+                .AddSingleton<ILoggerFactory>(loggingFactory)
+                .BuildServiceProvider();
+
+            using (var ctx = new MyContext474(serviceProvider))
+            {
+                var result = ctx.Customers.Select(c => c.FirstName)
+                    .SelectMany(c => ctx.Customers.Select(c2 => c2.LastName), (fn, ln) => new { fn, ln })
+                    .Where(r => !r.fn.Contains(r.ln)).ToList().OrderBy(r => r.fn).ThenBy(r => r.ln).ToList();
+
+                var expected = ctx.Customers.Select(c => c.FirstName).ToList()
+                    .SelectMany(c => ctx.Customers.Select(c2 => c2.LastName).ToList(), (fn, ln) => new { fn, ln })
+                    .Where(r => r.ln != "" && r.fn != null && r.ln != null && !r.fn.Contains(r.ln)).ToList().OrderBy(r => r.fn).ThenBy(r => r.ln).ToList();
+
+                Assert.Equal(result.Count, expected.Count);
+                for (int i = 0; i < result.Count; i++)
+                {
+                    Assert.True(expected[i].fn == result[i].fn);
+                    Assert.True(expected[i].ln == result[i].ln);
+                }
+            }
+        }
+
+        [Fact]
+        public virtual void Repro474_string_starts_with_on_argument_with_wildcard_constant()
+        {
+            CreateDatabase474();
+
+            var loggingFactory = new TestSqlLoggerFactory();
+            var serviceProvider = new ServiceCollection()
+                .AddEntityFrameworkSqlServer()
+                .AddSingleton<ILoggerFactory>(loggingFactory)
+                .BuildServiceProvider();
+
+            using (var ctx = new MyContext474(serviceProvider))
+            {
+                var result1 = ctx.Customers.Where(c => c.FirstName.StartsWith("%B")).Select(c => c.FirstName).ToList();
+                var expected1 = ctx.Customers.Select(c => c.FirstName).ToList().Where(c => c != null && c.StartsWith("%B"));
+                Assert.True(expected1.Count() == result1.Count);
+
+                var result2 = ctx.Customers.Where(c => c.FirstName.StartsWith("a_")).Select(c => c.FirstName).ToList();
+                var expected2 = ctx.Customers.Select(c => c.FirstName).ToList().Where(c => c != null && c.StartsWith("a_"));
+                Assert.True(expected2.Count() == result2.Count);
+
+                var result3 = ctx.Customers.Where(c => c.FirstName.StartsWith(null)).Select(c => c.FirstName).ToList();
+                Assert.True(0 == result3.Count);
+
+                var result4 = ctx.Customers.Where(c => c.FirstName.StartsWith("")).Select(c => c.FirstName).ToList();
+                Assert.True(ctx.Customers.Count() == result4.Count);
+
+                var result5 = ctx.Customers.Where(c => c.FirstName.StartsWith("_Ba_")).Select(c => c.FirstName).ToList();
+                var expected5 = ctx.Customers.Select(c => c.FirstName).ToList().Where(c => c != null && c.StartsWith("_Ba_"));
+                Assert.True(expected5.Count() == result5.Count);
+
+                var result6 = ctx.Customers.Where(c => !c.FirstName.StartsWith("%B%a%r")).Select(c => c.FirstName).ToList();
+                var expected6 = ctx.Customers.Select(c => c.FirstName).ToList().Where(c => c != null && !c.StartsWith("%B%a%r"));
+                Assert.True(expected6.Count() == result6.Count);
+
+                var result7 = ctx.Customers.Where(c => !c.FirstName.StartsWith("")).Select(c => c.FirstName).ToList();
+                Assert.True(0 == result7.Count);
+
+                var result8 = ctx.Customers.Where(c => !c.FirstName.StartsWith(null)).Select(c => c.FirstName).ToList();
+                Assert.True(0 == result8.Count);
+            }
+        }
+
+        [Fact]
+        public virtual void Repro474_string_starts_with_on_argument_with_wildcard_parameter()
+        {
+            CreateDatabase474();
+
+            var loggingFactory = new TestSqlLoggerFactory();
+            var serviceProvider = new ServiceCollection()
+                .AddEntityFrameworkSqlServer()
+                .AddSingleton<ILoggerFactory>(loggingFactory)
+                .BuildServiceProvider();
+
+            using (var ctx = new MyContext474(serviceProvider))
+            {
+                var prm1 = "%B";
+                var result1 = ctx.Customers.Where(c => c.FirstName.StartsWith(prm1)).Select(c => c.FirstName).ToList();
+                var expected1 = ctx.Customers.Select(c => c.FirstName).ToList().Where(c => c != null && c.StartsWith(prm1));
+                Assert.True(expected1.Count() == result1.Count);
+
+                var prm2 = "a_";
+                var result2 = ctx.Customers.Where(c => c.FirstName.StartsWith(prm2)).Select(c => c.FirstName).ToList();
+                var expected2 = ctx.Customers.Select(c => c.FirstName).ToList().Where(c => c != null && c.StartsWith(prm2));
+                Assert.True(expected2.Count() == result2.Count);
+
+                var prm3 = (string)null;
+                var result3 = ctx.Customers.Where(c => c.FirstName.StartsWith(prm3)).Select(c => c.FirstName).ToList();
+                Assert.True(0 == result3.Count);
+
+                var prm4 = "";
+                var result4 = ctx.Customers.Where(c => c.FirstName.StartsWith(prm4)).Select(c => c.FirstName).ToList();
+                Assert.True(ctx.Customers.Count() == result4.Count);
+
+                var prm5 = "_Ba_";
+                var result5 = ctx.Customers.Where(c => c.FirstName.StartsWith(prm5)).Select(c => c.FirstName).ToList();
+                var expected5 = ctx.Customers.Select(c => c.FirstName).ToList().Where(c => c != null && c.StartsWith(prm5));
+                Assert.True(expected5.Count() == result5.Count);
+
+                var prm6 = "%B%a%r";
+                var result6 = ctx.Customers.Where(c => !c.FirstName.StartsWith(prm6)).Select(c => c.FirstName).ToList();
+                var expected6 = ctx.Customers.Select(c => c.FirstName).ToList().Where(c => c != null && !c.StartsWith(prm6));
+                Assert.True(expected6.Count() == result6.Count);
+
+                var prm7 = "";
+                var result7 = ctx.Customers.Where(c => !c.FirstName.StartsWith(prm7)).Select(c => c.FirstName).ToList();
+                Assert.True(0 == result7.Count);
+
+                var prm8 = (string)null;
+                var result8 = ctx.Customers.Where(c => !c.FirstName.StartsWith(prm8)).Select(c => c.FirstName).ToList();
+                Assert.True(0 == result8.Count);
+            }
+        }
+
+        [Fact]
+        public virtual void Repro474_string_starts_with_on_argument_with_wildcard_column()
+        {
+            CreateDatabase474();
+
+            var loggingFactory = new TestSqlLoggerFactory();
+            var serviceProvider = new ServiceCollection()
+                .AddEntityFrameworkSqlServer()
+                .AddSingleton<ILoggerFactory>(loggingFactory)
+                .BuildServiceProvider();
+
+            using (var ctx = new MyContext474(serviceProvider))
+            {
+                var result = ctx.Customers.Select(c => c.FirstName)
+                    .SelectMany(c => ctx.Customers.Select(c2 => c2.LastName), (fn, ln) => new { fn, ln })
+                    .Where(r => r.fn.StartsWith(r.ln)).ToList().OrderBy(r => r.fn).ThenBy(r => r.ln).ToList();
+
+                var expected = ctx.Customers.Select(c => c.FirstName).ToList()
+                    .SelectMany(c => ctx.Customers.Select(c2 => c2.LastName).ToList(), (fn, ln) => new { fn, ln })
+                    .Where(r => r.ln == "" || (r.fn != null && r.ln != null && r.fn.StartsWith(r.ln))).ToList().OrderBy(r => r.fn).ThenBy(r => r.ln).ToList();
+
+                Assert.Equal(result.Count, expected.Count);
+                for (int i = 0; i < result.Count; i++)
+                {
+                    Assert.True(expected[i].fn == result[i].fn);
+                    Assert.True(expected[i].ln == result[i].ln);
+                }
+            }
+        }
+
+        [Fact]
+        public virtual void Repro474_string_starts_with_on_argument_with_wildcard_column_negated()
+        {
+            CreateDatabase474();
+
+            var loggingFactory = new TestSqlLoggerFactory();
+            var serviceProvider = new ServiceCollection()
+                .AddEntityFrameworkSqlServer()
+                .AddSingleton<ILoggerFactory>(loggingFactory)
+                .BuildServiceProvider();
+
+            using (var ctx = new MyContext474(serviceProvider))
+            {
+                var result = ctx.Customers.Select(c => c.FirstName)
+                    .SelectMany(c => ctx.Customers.Select(c2 => c2.LastName), (fn, ln) => new { fn, ln })
+                    .Where(r => !r.fn.StartsWith(r.ln)).ToList().OrderBy(r => r.fn).ThenBy(r => r.ln).ToList();
+
+                var expected = ctx.Customers.Select(c => c.FirstName).ToList()
+                    .SelectMany(c => ctx.Customers.Select(c2 => c2.LastName).ToList(), (fn, ln) => new { fn, ln })
+                    .Where(r => r.ln != "" && r.fn != null && r.ln != null && !r.fn.StartsWith(r.ln)).ToList().OrderBy(r => r.fn).ThenBy(r => r.ln).ToList();
+
+                Assert.Equal(result.Count, expected.Count);
+                for (int i = 0; i < result.Count; i++)
+                {
+                    Assert.True(expected[i].fn == result[i].fn);
+                    Assert.True(expected[i].ln == result[i].ln);
+                }
+            }
+        }
+
+        [Fact]
+        public virtual void Repro474_string_ends_with_on_argument_with_wildcard_constant()
+        {
+            CreateDatabase474();
+
+            var loggingFactory = new TestSqlLoggerFactory();
+            var serviceProvider = new ServiceCollection()
+                .AddEntityFrameworkSqlServer()
+                .AddSingleton<ILoggerFactory>(loggingFactory)
+                .BuildServiceProvider();
+
+            using (var ctx = new MyContext474(serviceProvider))
+            {
+                var result1 = ctx.Customers.Where(c => c.FirstName.StartsWith("%B")).Select(c => c.FirstName).ToList();
+                var expected1 = ctx.Customers.Select(c => c.FirstName).ToList().Where(c => c != null && c.StartsWith("%B"));
+                Assert.True(expected1.Count() == result1.Count);
+
+                var result2 = ctx.Customers.Where(c => c.FirstName.StartsWith("_r")).Select(c => c.FirstName).ToList();
+                var expected2 = ctx.Customers.Select(c => c.FirstName).ToList().Where(c => c != null && c.StartsWith("_r"));
+                Assert.True(expected2.Count() == result2.Count);
+
+                var result3 = ctx.Customers.Where(c => c.FirstName.StartsWith(null)).Select(c => c.FirstName).ToList();
+                Assert.True(0 == result3.Count);
+
+                var result4 = ctx.Customers.Where(c => c.FirstName.StartsWith("")).Select(c => c.FirstName).ToList();
+                Assert.True(ctx.Customers.Count() == result4.Count);
+
+                var result5 = ctx.Customers.Where(c => c.FirstName.StartsWith("a__r_")).Select(c => c.FirstName).ToList();
+                var expected5 = ctx.Customers.Select(c => c.FirstName).ToList().Where(c => c != null && c.StartsWith("a__r_"));
+                Assert.True(expected5.Count() == result5.Count);
+
+                var result6 = ctx.Customers.Where(c => !c.FirstName.StartsWith("%B%a%r")).Select(c => c.FirstName).ToList();
+                var expected6 = ctx.Customers.Select(c => c.FirstName).ToList().Where(c => c != null && !c.StartsWith("%B%a%r"));
+                Assert.True(expected6.Count() == result6.Count);
+
+                var result7 = ctx.Customers.Where(c => !c.FirstName.StartsWith("")).Select(c => c.FirstName).ToList();
+                Assert.True(0 == result7.Count);
+
+                var result8 = ctx.Customers.Where(c => !c.FirstName.StartsWith(null)).Select(c => c.FirstName).ToList();
+                Assert.True(0 == result8.Count);
+            }
+        }
+
+        [Fact]
+        public virtual void Repro474_string_ends_with_on_argument_with_wildcard_parameter()
+        {
+            CreateDatabase474();
+
+            var loggingFactory = new TestSqlLoggerFactory();
+            var serviceProvider = new ServiceCollection()
+                .AddEntityFrameworkSqlServer()
+                .AddSingleton<ILoggerFactory>(loggingFactory)
+                .BuildServiceProvider();
+
+            using (var ctx = new MyContext474(serviceProvider))
+            {
+                var prm1 = "%B";
+                var result1 = ctx.Customers.Where(c => c.FirstName.StartsWith(prm1)).Select(c => c.FirstName).ToList();
+                var expected1 = ctx.Customers.Select(c => c.FirstName).ToList().Where(c => c != null && c.StartsWith(prm1));
+                Assert.True(expected1.Count() == result1.Count);
+
+                var prm2 = "_r";
+                var result2 = ctx.Customers.Where(c => c.FirstName.StartsWith(prm2)).Select(c => c.FirstName).ToList();
+                var expected2 = ctx.Customers.Select(c => c.FirstName).ToList().Where(c => c != null && c.StartsWith(prm2));
+                Assert.True(expected2.Count() == result2.Count);
+
+                var prm3 = (string)null;
+                var result3 = ctx.Customers.Where(c => c.FirstName.StartsWith(prm3)).Select(c => c.FirstName).ToList();
+                Assert.True(0 == result3.Count);
+
+                var prm4 = "";
+                var result4 = ctx.Customers.Where(c => c.FirstName.StartsWith(prm4)).Select(c => c.FirstName).ToList();
+                Assert.True(ctx.Customers.Count() == result4.Count);
+
+                var prm5 = "a__r_";
+                var result5 = ctx.Customers.Where(c => c.FirstName.StartsWith(prm5)).Select(c => c.FirstName).ToList();
+                var expected5 = ctx.Customers.Select(c => c.FirstName).ToList().Where(c => c != null && c.StartsWith(prm5));
+                Assert.True(expected5.Count() == result5.Count);
+
+                var prm6 = "%B%a%r";
+                var result6 = ctx.Customers.Where(c => !c.FirstName.StartsWith(prm6)).Select(c => c.FirstName).ToList();
+                var expected6 = ctx.Customers.Select(c => c.FirstName).ToList().Where(c => c != null && !c.StartsWith(prm6));
+                Assert.True(expected6.Count() == result6.Count);
+
+                var prm7 = "";
+                var result7 = ctx.Customers.Where(c => !c.FirstName.StartsWith(prm7)).Select(c => c.FirstName).ToList();
+                Assert.True(0 == result7.Count);
+
+                var prm8 = (string)null;
+                var result8 = ctx.Customers.Where(c => !c.FirstName.StartsWith(prm8)).Select(c => c.FirstName).ToList();
+                Assert.True(0 == result8.Count);
+            }
+        }
+
+        [Fact]
+        public virtual void Repro474_string_ends_with_on_argument_with_wildcard_column()
+        {
+            CreateDatabase474();
+
+            var loggingFactory = new TestSqlLoggerFactory();
+            var serviceProvider = new ServiceCollection()
+                .AddEntityFrameworkSqlServer()
+                .AddSingleton<ILoggerFactory>(loggingFactory)
+                .BuildServiceProvider();
+
+            using (var ctx = new MyContext474(serviceProvider))
+            {
+                var result = ctx.Customers.Select(c => c.FirstName)
+                    .SelectMany(c => ctx.Customers.Select(c2 => c2.LastName), (fn, ln) => new { fn, ln })
+                    .Where(r => r.fn.EndsWith(r.ln)).ToList().OrderBy(r => r.fn).ThenBy(r => r.ln).ToList();
+
+                var expected = ctx.Customers.Select(c => c.FirstName).ToList()
+                    .SelectMany(c => ctx.Customers.Select(c2 => c2.LastName).ToList(), (fn, ln) => new { fn, ln })
+                    .Where(r => r.ln == "" || (r.fn != null && r.ln != null && r.fn.EndsWith(r.ln))).ToList().OrderBy(r => r.fn).ThenBy(r => r.ln).ToList();
+
+                Assert.Equal(result.Count, expected.Count);
+                for (int i = 0; i < result.Count; i++)
+                {
+                    Assert.True(expected[i].fn == result[i].fn);
+                    Assert.True(expected[i].ln == result[i].ln);
+                }
+            }
+        }
+
+        [Fact]
+        public virtual void Repro474_string_ends_with_on_argument_with_wildcard_column_negated()
+        {
+            CreateDatabase474();
+
+            var loggingFactory = new TestSqlLoggerFactory();
+            var serviceProvider = new ServiceCollection()
+                .AddEntityFrameworkSqlServer()
+                .AddSingleton<ILoggerFactory>(loggingFactory)
+                .BuildServiceProvider();
+
+            using (var ctx = new MyContext474(serviceProvider))
+            {
+                var result = ctx.Customers.Select(c => c.FirstName)
+                    .SelectMany(c => ctx.Customers.Select(c2 => c2.LastName), (fn, ln) => new { fn, ln })
+                    .Where(r => !r.fn.EndsWith(r.ln)).ToList().OrderBy(r => r.fn).ThenBy(r => r.ln).ToList();
+
+                var expected = ctx.Customers.Select(c => c.FirstName).ToList()
+                    .SelectMany(c => ctx.Customers.Select(c2 => c2.LastName).ToList(), (fn, ln) => new { fn, ln })
+                    .Where(r => r.ln != "" && r.fn != null && r.ln != null && !r.fn.EndsWith(r.ln)).ToList().OrderBy(r => r.fn).ThenBy(r => r.ln).ToList();
+
+                Assert.Equal(result.Count, expected.Count);
+                for (int i = 0; i < result.Count; i++)
+                {
+                    Assert.True(expected[i].fn == result[i].fn);
+                    Assert.True(expected[i].ln == result[i].ln);
+                }
+            }
+        }
+
+        private void CreateDatabase474()
+        {
+            CreateTestStore(
+                "Repro474",
+                _fixture.ServiceProvider,
+                (sp, co) => new MyContext474(sp),
+                context =>
+                {
+                    var c11 = new Customer474 { FirstName = "%Bar", LastName = "%B" };
+                    var c12 = new Customer474 { FirstName = "Ba%r", LastName = "a%" };
+                    var c13 = new Customer474 { FirstName = "Bar%", LastName = "%B%" };
+                    var c14 = new Customer474 { FirstName = "%Ba%r%", LastName = null };
+                    var c15 = new Customer474 { FirstName = "B%a%%r%", LastName = "r%" };
+                    var c16 = new Customer474 { FirstName = null, LastName = "%B%a%r" };
+                    var c17 = new Customer474 { FirstName = "%B%a%r", LastName = "" };
+                    var c18 = new Customer474 { FirstName = "", LastName = "%%r%" };
+
+                    var c21 = new Customer474 { FirstName = "_Bar", LastName = "_B" };
+                    var c22 = new Customer474 { FirstName = "Ba_r", LastName = "a_" };
+                    var c23 = new Customer474 { FirstName = "Bar_", LastName = "_B_" };
+                    var c24 = new Customer474 { FirstName = "_Ba_r_", LastName = null };
+                    var c25 = new Customer474 { FirstName = "B_a__r_", LastName = "r_" };
+                    var c26 = new Customer474 { FirstName = null, LastName = "_B_a_r" };
+                    var c27 = new Customer474 { FirstName = "_B_a_r", LastName = "" };
+                    var c28 = new Customer474 { FirstName = "", LastName = "__r_" };
+
+                    context.Customers.AddRange(c11, c12, c13, c14, c15, c16, c17, c18, c21, c22, c23, c24, c25, c26, c27, c28);
+                    context.SaveChanges();
+                });
+        }
+
+        public class MyContext474 : DbContext
+        {
+            private readonly IServiceProvider _serviceProvider;
+
+            public MyContext474(IServiceProvider serviceProvider)
+            {
+                _serviceProvider = serviceProvider;
+            }
+
+            public DbSet<Customer474> Customers { get; set; }
+
+            protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+                => optionsBuilder.UseSqlServer(SqlServerTestStore.CreateConnectionString("Repro474"));
+        }
+
+        public class Customer474
+        {
+            public int Id { get; set; }
+            public string FirstName { get; set; }
+            public string LastName { get; set; }
+        }
+
         private static void CreateTestStore<TContext>(
             string databaseName,
             IServiceProvider serviceProvider,

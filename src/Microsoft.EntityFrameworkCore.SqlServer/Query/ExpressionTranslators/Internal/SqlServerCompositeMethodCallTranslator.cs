@@ -29,7 +29,10 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionTranslators.Internal
             new SqlServerStringTrimEndTranslator(),
             new SqlServerStringTrimStartTranslator(),
             new SqlServerStringTrimTranslator(),
-            new SqlServerConvertTranslator()
+            new SqlServerConvertTranslator(),
+            new SqlServerContainsCharIndexTranslator(),
+            new SqlServerEndsWithCharIndexTranslator(),
+            new SqlServerStartsWithCharIndexTranslator(),
         };
 
         // ReSharper disable once SuggestBaseTypeForParameter
